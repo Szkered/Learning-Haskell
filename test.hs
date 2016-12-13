@@ -50,3 +50,20 @@ reverse' = foldl (flip (:)) []
 
 sqrtSums :: Int 
 sqrtSums = (+1) . length . takeWhile (<1000) . scanl1 (+) . map sqrt $ [1..]
+
+mergesort :: (Ord a) => [a] -> [a]
+mergesort [] = []
+mergesort [x] = [x]
+mergesort xs = merge (mergesort . fst $ splited xs) (mergesort . snd $ splited xs)
+    where splited x = splitAt ((fromIntegral . length $ x) `div` 2) x
+          merge xs [] = xs
+          merge [] ys = ys
+          merge (x:xs) ys = (takeWhile (<=x) ys) ++ (merge (dropWhile (<=x) ys) (x:xs))
+
+-- alternative merge
+merge' :: (Ord a) => [a] -> [a] -> [a]
+merge' xs [] = xs
+merge' [] ys = ys
+merge' (x:xs) (y:ys)
+    | if (x<=y) x:(merge' xs (y:ys))
+    | otherwise y:(merge' ys (x:xs))
