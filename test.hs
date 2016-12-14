@@ -23,10 +23,6 @@ zip' (x:xs) (y:ys) = (x,y) : (zip' xs ys)
 
 quicksort :: (Ord a) => [a] -> [a]
 quicksort [] = []
--- quicksort (x:xs) =
---     let smallerSorted = quicksort (filter (<=x) xs)
---         largerSorted  = quicksort (filter (>x) xs)
---     in smallerSorted ++ [x] ++ largerSorted
 quicksort (x:xs) = quicksort (filter (<=x) xs) ++ [x] ++ quicksort (filter (>x) xs)
     
 zipWith' :: (a -> b -> c) -> [a] -> [b] -> [c]
@@ -54,8 +50,8 @@ sqrtSums = (+1) . length . takeWhile (<1000) . scanl1 (+) . map sqrt $ [1..]
 mergesort :: (Ord a) => [a] -> [a]
 mergesort [] = []
 mergesort [x] = [x]
-mergesort xs = merge (mergesort . fst $ splited xs) (mergesort . snd $ splited xs)
-    where splited x = splitAt ((fromIntegral . length $ x) `div` 2) x
+mergesort xs = merge (mergesort front) (mergesort rear)
+    where (front, rear) = splitAt ((fromIntegral . length $ xs) `div` 2) xs
           merge xs [] = xs
           merge [] ys = ys
           merge (x:xs) ys = (takeWhile (<=x) ys) ++ (merge (dropWhile (<=x) ys) (x:xs))
@@ -65,5 +61,22 @@ merge' :: (Ord a) => [a] -> [a] -> [a]
 merge' xs [] = xs
 merge' [] ys = ys
 merge' (x:xs) (y:ys)
-    | if (x<=y) x:(merge' xs (y:ys))
-    | otherwise y:(merge' ys (x:xs))
+  | x<=y      = x:(merge' xs (y:ys))
+  | otherwise = y:(merge' ys (x:xs))
+
+-- alternative split
+splitList :: [a] -> ([a], [a])
+splitList [] = ([], [])
+splitList [x] = ([x], [])
+splitList (x:y:zs) = let (xs, ys) = splitList zs in (x:xs, y:ys)
+
+splitList' :: [a] -> ([a], [a])
+splitList' zs = go zs [] []
+  where go [] xs ys = (xs, ys)
+        go [x] xs ys = (x:xs, ys)
+        go (x:y:zs) xs ys = go zs (x:xs) (y:ys)
+
+splitList'' :: [a] -> ([a], [a])
+splitList'' xs = (go odd, go even)
+  where go f = map snd . filter (f.fst) $ indexed
+        indexed = zip [0..] xs
