@@ -1,3 +1,7 @@
+import Data.List
+import Data.Char
+import Data.Function
+
 factorial :: (Integral a) => a -> a
 factorial 0 = 1
 factorial n = n * factorial (n - 1)
@@ -39,7 +43,7 @@ chain n
 
 numLongChains :: (Num a) => a
 -- numLongChains = fromIntegral (length (filter ((>15) . length) (map chain [1..100])))
-numLongChains = fromIntegral . length . (filter ((>15) . length)) . (map chain) $ [1..100]
+numLongChains = genericLength . (filter ((>15) . length)) . (map chain) $ [1..100]
 
 reverse' :: [a] -> [a]
 reverse' = foldl (flip (:)) []
@@ -51,7 +55,7 @@ mergesort :: (Ord a) => [a] -> [a]
 mergesort [] = []
 mergesort [x] = [x]
 mergesort xs = merge (mergesort front) (mergesort rear)
-    where (front, rear) = splitAt ((fromIntegral . length $ xs) `div` 2) xs
+    where (front, rear) = splitAt ((genericLength xs) `div` 2) xs
           merge xs [] = xs
           merge [] ys = ys
           merge (x:xs) ys = (takeWhile (<=x) ys) ++ (merge (dropWhile (<=x) ys) (x:xs))
@@ -80,3 +84,18 @@ splitList'' :: [a] -> ([a], [a])
 splitList'' xs = (go odd, go even)
   where go f = map snd . filter (f.fst) $ indexed
         indexed = zip [0..] xs
+        
+mergesort' :: (Ord a) => [a] -> [a]
+mergesort' [] = []
+mergesort' [x] = [x]
+mergesort' xs = merge' (mergesort' front) (mergesort rear)
+    where (front, rear) = splitList xs
+    
+words' :: String -> [String]
+words' = filter (not . any isSpace) . groupBy ((==) `on` isSpace)
+
+findKey :: (Eq k) => k -> [(k,v)] -> Maybe v
+findKey key [] = Nothing
+findKey key ((k,v):xs)
+    | key == k  = Just v
+    | otherwise = findKey key xs
