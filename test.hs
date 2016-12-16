@@ -1,6 +1,7 @@
 import Data.List
 import Data.Char
 import Data.Function
+import qualified Data.Map as Map
 
 factorial :: (Integral a) => a -> a
 factorial 0 = 1
@@ -99,3 +100,16 @@ findKey key [] = Nothing
 findKey key ((k,v):xs)
     | key == k  = Just v
     | otherwise = findKey key xs
+
+    
+data LockerState = Taken | Free deriving (Show, Eq)
+type Code = String
+type LockerMap = Map.Map Int (LockerState, Code)
+
+lockerLookup :: Int -> LockerMap -> Either String Code
+lockerLookup lockerNumber map = 
+    case Map.lookup lockerNumber map of
+        Nothing -> Left $ "Locker number " ++ show lockerNumber ++ " doesn't exist!"
+        Just (state, code) -> if state /= Taken
+                                then Right code
+                                else Left $ "Locker " ++ show lockerNumber ++ "is taken!"
