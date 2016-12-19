@@ -2,6 +2,10 @@ import Data.List
 import Data.Char
 import Data.Function
 import qualified Data.Map as Map
+import Control.Monad
+import System.IO
+
+
 
 factorial :: (Integral a) => a -> a
 factorial 0 = 1
@@ -143,23 +147,23 @@ treeElem x (Node a left right)
   | x > a  = treeElem x right
 
 -- typeclass
-class Eq a where
-  (==) :: a -> a -> Bool
-  (/=) :: a -> a -> Bool
-  x == y = not (x /= y)
-  x /= y = not (x == y)
+class Eq' a where
+  (.==) :: a -> a -> Bool
+  (./=) :: a -> a -> Bool
+  x .== y = not (x ./= y)
+  x ./= y = not (x .== y)
 
 data TrafficLight = Red | Yellow | Green
-instance Eq TrafficLight where
-  Red == Red = True
-  Green == Green = True
-  Yellow == Yellow = True
-  _ == _ = False
+instance Eq' TrafficLight where
+  Red .== Red = True
+  Green .== Green = True
+  Yellow .== Yellow = True
+  _ .== _ = False
 
-instance Eq (Maybe m) where
-  Just x == Just y = x == y
-  Nothing == Nothing = True
-  _ == _ = False
+instance (Eq' m) => Eq' (Maybe m) where
+  Just x .== Just y = x .== y
+  Nothing .== Nothing = True
+  _ .== _ = False
 
 class Functor' f where
     fmap' :: (a -> b) -> f a -> f b
@@ -169,4 +173,66 @@ instance Functor' [] where
     
 instance Functor' Tree where
     fmap' f EmptyTree = EmptyTree
-    fmap' f (Node x leftsub rightsub) = Node (f x) (fmap f leftsub) (fmap f rightsub)
+    fmap' f (Node x leftsub rightsub) = Node (f x) (fmap' f leftsub) (fmap' f rightsub)
+
+-- typeclass 102    
+class Tofu t where
+    tofu :: j a -> t a j --here t must have the kind * -> (* -> *) -> *
+
+data Frank a b = Frank {frankField :: b a} deriving (Show) --same here with Frank
+
+--hence
+instance Tofu Frank where
+    tofu x = Frank x
+    
+
+-- I/O
+main' = do
+    return ()
+    return "HAHAHA"
+    line <- getLine
+    return "Blah"
+    return 4
+    putStrLn line
+
+main'' = do
+    c <- getChar
+    if c /= ' '
+        then do
+            putChar c
+            main
+        else return ()
+        
+main1 = do
+    c <- getChar
+    when (c /= ' ') $ do
+        putChar c
+        main
+        
+main2 = do
+    rs <- sequence [getLine, getLine, getLine]
+    print rs
+    
+main3 = do
+    colors <- forM [1..4] (\a -> do
+        putStrLn $ "Associate color with the number " ++ show a ++ ":"
+        color <- getLine
+        return color)
+    putStrLn "colors choosen:"
+    mapM putStrLn colors
+
+main4 = interact shortLinesOnly
+
+shortLinesOnly :: String -> String
+shortLinesOnly = unlines . filter (\l -> length l < 25) . lines
+
+main5 = do
+    handle <- openFile "TwoSum.hs" ReadMode
+    contents <- hGetContents handle
+    putStr contents
+    hClose handle
+    
+main = do
+    withFile "TwoSum.hs" ReadMode (\handle -> do
+        contents <- hGetContents handle
+        putStr contents)

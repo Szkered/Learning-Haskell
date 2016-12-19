@@ -9,6 +9,9 @@ twoSum n (x:xs) =
 twoSum' :: Int -> [Int] -> (Int, Int)
 twoSum' n l = twoSum n (zip [0..] l)
 
+
+
+
 twoSum'' :: (Integral a) => a -> [a] -> (a, a)
 twoSum'' _ [] = (-1, -1)
 twoSum'' _ [x] = (-1, -1)
