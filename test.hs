@@ -113,3 +113,13 @@ lockerLookup lockerNumber map =
         Just (state, code) -> if state /= Taken
                                 then Right code
                                 else Left $ "Locker " ++ show lockerNumber ++ "is taken!"
+                                
+class Functor' f where
+    fmap' :: (a -> b) -> f a -> f b
+    
+instance Functor' [] where
+    fmap' = map
+    
+instance Functor' Tree where
+    fmap' f EmptyTree = EmptyTree
+    fmap' f (Node x leftsub rightsub) = Node (f x) (fmap f leftsub) (fmap f rightsub)
