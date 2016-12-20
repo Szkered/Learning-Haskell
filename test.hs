@@ -232,7 +232,9 @@ main5 = do
     putStr contents
     hClose handle
     
-main = do
+main6 = do
     withFile "TwoSum.hs" ReadMode (\handle -> do
         contents <- hGetContents handle
         putStr contents)
+
+main = getContents >>= (\[a, b, [l, r]] -> print a). map (map read . words). lines

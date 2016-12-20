@@ -27,4 +27,4 @@ factorial 0 = 1
 factorial n = n * factorial (n - 1)
 
 exp' :: Double -> Double
-exp' = (+1) . sum . map (\(i, x) -> (x ^ i) / (fromIntegral . factorial $ i)) . zip [1..9] . replicate 10
+exp' = (+1) . sum . map (\(i, x) -> (x ^ i) / (fromIntegral . factorial $ i)) . zip [1..9] . replicate 9
