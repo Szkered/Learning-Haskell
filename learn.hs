@@ -241,13 +241,25 @@ main6 = do
 main = do line <- fmap reverse getLine  
           putStrLn $ "You said " ++ line ++ " backwards!"
   
+-- functionally solving problems
+solveRPN :: String -> Float
+solveRPN = head . foldl foldingFunction [] . words
+    where foldingFunction (x:y:ys) "*" = (y * x):ys
+          foldingFunction (x:y:ys) "+" = (y + x):ys
+          foldingFunction (x:y:ys) "-" = (y - x):ys
+          foldingFunction (x:y:ys) "/" = (y / x):ys
+          foldingFunction (x:y:ys) "^" = (y ** x):ys    
+          foldingFunction (x:ys) "ln"  = log x:ys
+          foldingFunction xs "sum"     = [sum xs]
+          foldingFunction xs numStr    =  read numStr:xs
+  
           
 -- functors and monoids
 instance Functor' ((->) r) where
-    fmap = (.)
+    fmap' = (.)
     
 -- an invalid Functor
-data CMaybe = CNothing | CJust Int a deriving (Show)
+data CMaybe a = CNothing | CJust Int a deriving (Show)
 instance Functor' CMaybe where
-    fmap f CNothing = CNothing
-    fmap f (CJust counter x) = CJust (counter+1) (f x)
+    fmap' f CNothing = CNothing
+    fmap' f (CJust counter x) = CJust (counter+1) (f x)
