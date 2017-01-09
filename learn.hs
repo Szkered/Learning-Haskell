@@ -4,7 +4,7 @@ import Data.Function
 import qualified Data.Map as Map
 import Control.Monad
 import System.IO
-
+import Control.Applicative
 
 
 factorial :: (Integral a) => a -> a
@@ -238,8 +238,9 @@ main6 = do
         putStr contents)
 
 
-main = do line <- fmap reverse getLine  
-          putStrLn $ "You said " ++ line ++ " backwards!"
+main7 = do 
+    line <- fmap reverse getLine  
+    putStrLn $ "You said " ++ line ++ " backwards!"
   
 -- functionally solving problems
 solveRPN :: String -> Float
@@ -252,22 +253,25 @@ solveRPN = head . foldl foldingFunction [] . words
           foldingFunction (x:ys) "ln"  = log x:ys
           foldingFunction xs "sum"     = [sum xs]
           foldingFunction xs numStr    =  read numStr:xs
-  
-          
+
+
 -- Functors and Monoids
--- a functor is a type constructor that takes one type, so 
+--   A functor is a type constructor that takes one type, so 
 -- effectively it is a function that maps between types
 -- for a type of kind * -> * to be a functor, it must has a
 -- fmap, which is a function that maps a function in domain type
 -- to a function to codomain type, i.e. it has the type (a -> b) -> f a -> f b)
--- Moreover, fmap must preserve the identity function and function composition.
+--   A functor is infact a map between two categories (types in haskell),
+-- where f is the map for objects, fmap is the map for morphisms in categories.
+-- therefore, fmap must preserve the identity function and function composition.
+
 
 -- this functor takes a type t and returns (r -> a) which is a function
 -- we see that its fmap is just functional composition
 instance Functor' ((->) r) where
     fmap' = (.)
     
--- an invalid Functor
+-- an invalid Functor, as it doesn't preserve function composition
 data CMaybe a = CNothing | CJust Int a deriving (Show)
 instance Functor' CMaybe where
     fmap' f CNothing = CNothing
