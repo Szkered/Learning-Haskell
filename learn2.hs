@@ -22,7 +22,9 @@ import Control.Applicative
 --     f <*> g = \x -> f x (g x)
 -- pure (+) <*> (+3) <*> (*5)
 
-
+-- instance Applicative [] where
+--     pure x = [x]
+--     fs <*> xs = [f x | f <- fs, x <- xs]
 
 -- Now here's a power example for applicative IO
 -- instance Applicative' IO where
@@ -83,6 +85,11 @@ newtype CharList = CharList { getCharList :: [Char] } deriving (Eq, Show)
 -- (>>=) is the binding function, which feeds a monadic value into 
 -- a function that transform normal value to a monadic value
 -- (>>) is the monadic application without binding: look at the signature
+-- some obvious law: 
+-- return x >>= f EQUALS f x
+-- m >>= return EQUALS m
+-- (m >>= f) >>= g EQUALS m >>= (\x -> f x >>= g)
+-- 
 
 -- this is the bind method (>>=) for Maybe monad
 applyMaybe :: Maybe a -> (a -> Maybe b) -> Maybe b  
@@ -181,3 +188,20 @@ list'' = do
     x <- [1,2]
     guard ('7' `elem` show x)
     return x
+    
+-- Monadically solving the knight problem!
+type KnightPos = (Int, Int)
+
+moveKnight :: [KnightPos] -> [[KnightPos]]
+moveKnight ps = filter onBoard  
+    [(c+2,r-1):ps,(c+2,r+1):ps,(c-2,r-1):ps,(c-2,r+1):ps  
+    ,(c+1,r-2):ps,(c+1,r+2):ps,(c-1,r-2):ps,(c-1,r+2):ps
+    ]  
+    where onBoard ((c,r):rs) = c `elem` [1..8] && r `elem` [1..8]
+          (c,r) = head ps
+    
+in3 :: KnightPos -> [[KnightPos]]
+in3 start = return [start] >>= moveKnight >>= moveKnight >>= moveKnight
+    
+canReachIn3 :: KnightPos -> KnightPos -> [[KnightPos]]
+canReachIn3 start end = filter ((end==) . head) . in3 $ start
