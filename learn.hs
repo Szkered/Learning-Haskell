@@ -33,7 +33,7 @@ zip' (x:xs) (y:ys) = (x,y) : (zip' xs ys)
 quicksort :: (Ord a) => [a] -> [a]
 quicksort [] = []
 quicksort (x:xs) = quicksort (filter (<=x) xs) ++ [x] ++ quicksort (filter (>x) xs)
-    
+
 zipWith' :: (a -> b -> c) -> [a] -> [b] -> [c]
 zipWith' _ [] _ = []
 zipWith' _ _ [] = []
@@ -43,17 +43,20 @@ zipWith' f (x:xs) (y:ys) = f x y : zipWith' f xs ys
 chain :: (Integral a) => a -> [a]
 chain 1 = [1]
 chain n
-    | even n = n:chain (n `div` 2)
-    | odd n  = n:chain (n*3 + 1)
+    | even n = n : chain (n `div` 2)
+    | odd n  = n : chain (n * 3 + 1)
 
 numLongChains :: (Num a) => a
 -- numLongChains = fromIntegral (length (filter ((>15) . length) (map chain [1..100])))
 numLongChains = genericLength . (filter ((>15) . length)) . (map chain) $ [1..100]
 
+-- (:) x xs should read as: front append x to list xs
+-- flip (:) xs x
+-- foldl f acc arg read as:: do f acc a where a:as = arg
 reverse' :: [a] -> [a]
 reverse' = foldl (flip (:)) []
 
-sqrtSums :: Int 
+sqrtSums :: Int
 sqrtSums = (+1) . length . takeWhile (<1000) . scanl1 (+) . map sqrt $ [1..]
 
 mergesort :: (Ord a) => [a] -> [a]
@@ -61,9 +64,13 @@ mergesort [] = []
 mergesort [x] = [x]
 mergesort xs = merge (mergesort front) (mergesort rear)
     where (front, rear) = splitAt ((genericLength xs) `div` 2) xs
-          merge xs [] = xs
-          merge [] ys = ys
-          merge (x:xs) ys = (takeWhile (<=x) ys) ++ (merge (dropWhile (<=x) ys) (x:xs))
+
+merge :: (Ord a) => [a] -> [a] -> [a]
+merge as [] = as
+merge [] bs = bs
+merge (a:as) bs = b_small ++ (merge b_big (a:as))
+  where b_small = takeWhile (<=a) bs
+        b_big   = dropWhile (<=a) bs
 
 -- alternative merge
 merge' :: (Ord a) => [a] -> [a] -> [a]
@@ -89,13 +96,13 @@ splitList'' :: [a] -> ([a], [a])
 splitList'' xs = (go odd, go even)
   where go f = map snd . filter (f.fst) $ indexed
         indexed = zip [0..] xs
-        
+
 mergesort' :: (Ord a) => [a] -> [a]
 mergesort' [] = []
 mergesort' [x] = [x]
 mergesort' xs = merge' (mergesort' front) (mergesort rear)
     where (front, rear) = splitList xs
-    
+
 words' :: String -> [String]
 words' = filter (not . any isSpace) . groupBy ((==) `on` isSpace)
 
@@ -105,13 +112,13 @@ findKey key ((k,v):xs)
     | key == k  = Just v
     | otherwise = findKey key xs
 
-    
+
 data LockerState = Taken | Free deriving (Show, Eq)
 type Code = String
 type LockerMap = Map.Map Int (LockerState, Code)
 
 lockerLookup :: Int -> LockerMap -> Either String Code
-lockerLookup lockerNumber map = 
+lockerLookup lockerNumber map =
     case Map.lookup lockerNumber map of
         Nothing -> Left $ "Locker number " ++ show lockerNumber ++ " doesn't exist!"
         Just (state, code) -> if state /= Taken
@@ -167,15 +174,17 @@ instance (Eq' m) => Eq' (Maybe m) where
 
 class Functor' f where
     fmap' :: (a -> b) -> f a -> f b
-    
+
 instance Functor' [] where
     fmap' = map
-    
+
+-- mathematically functors are homs between cats
+-- here Node is functor that maps arbitrary type a to a singleton Tree Node a
 instance Functor' Tree where
     fmap' f EmptyTree = EmptyTree
     fmap' f (Node x leftsub rightsub) = Node (f x) (fmap' f leftsub) (fmap' f rightsub)
 
--- typeclass 102    
+-- typeclass 102
 class Tofu t where
     tofu :: j a -> t a j --here t must have the kind * -> (* -> *) -> *
 
@@ -184,10 +193,10 @@ data Frank a b = Frank {frankField :: b a} deriving (Show) --same here with Fran
 --hence
 instance Tofu Frank where
     tofu x = Frank x
-    
+
 
 -- I/O
-main' = do
+main = do
     return ()
     return "HAHAHA"
     line <- getLine
@@ -200,19 +209,19 @@ main'' = do
     if c /= ' '
         then do
             putChar c
-            main
+            main''
         else return ()
-        
+
 main1 = do
     c <- getChar
     when (c /= ' ') $ do
         putChar c
-        main
-        
+        main1
+
 main2 = do
     rs <- sequence [getLine, getLine, getLine]
     print rs
-    
+
 main3 = do
     colors <- forM [1..4] (\a -> do
         putStrLn $ "Associate color with the number " ++ show a ++ ":"
@@ -231,17 +240,17 @@ main5 = do
     contents <- hGetContents handle
     putStr contents
     hClose handle
-    
+
 main6 = do
     withFile "TwoSum.hs" ReadMode (\handle -> do
         contents <- hGetContents handle
         putStr contents)
 
 
-main7 = do 
-    line <- fmap reverse getLine  
+main7 = do
+    line <- fmap reverse getLine
     putStrLn $ "You said " ++ line ++ " backwards!"
-  
+
 -- functionally solving problems
 solveRPN :: String -> Float
 solveRPN = head . foldl foldingFunction [] . words
@@ -249,14 +258,14 @@ solveRPN = head . foldl foldingFunction [] . words
           foldingFunction (x:y:ys) "+" = (y + x):ys
           foldingFunction (x:y:ys) "-" = (y - x):ys
           foldingFunction (x:y:ys) "/" = (y / x):ys
-          foldingFunction (x:y:ys) "^" = (y ** x):ys    
+          foldingFunction (x:y:ys) "^" = (y ** x):ys
           foldingFunction (x:ys) "ln"  = log x:ys
           foldingFunction xs "sum"     = [sum xs]
           foldingFunction xs numStr    =  read numStr:xs
 
 
 -- Functors and Monoids
---   A functor is a type constructor that takes one type, so 
+--   A functor is a type constructor that takes one type, so
 -- effectively it is a function that maps between types
 -- for a type of kind * -> * to be a functor, it must has a
 -- fmap, which is a function that maps a function in domain type
@@ -270,7 +279,7 @@ solveRPN = head . foldl foldingFunction [] . words
 -- we see that its fmap is just functional composition
 instance Functor' ((->) r) where
     fmap' = (.)
-    
+
 -- an invalid Functor, as it doesn't preserve function composition
 data CMaybe a = CNothing | CJust Int a deriving (Show)
 instance Functor' CMaybe where

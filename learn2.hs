@@ -5,7 +5,7 @@ import Control.Applicative
 -- class (Functor' f) => Applicative' f where
 --     pure :: a -> f a
     -- <*> :: f (a -> b) -> f a -> f b
-    
+
 -- Applicative functors can fmap a function directly via method 'pure', and 
 -- apply it later to data of codomain type via operator <*>. For example you
 -- can do this in Maybe type:
