@@ -1,15 +1,18 @@
+import Control.Exception
+import System.IO.Error
+
 main :: IO()
 main = do
   print "what's your name?"
   name <- getLine
   print ("hello " ++ name ++ "!")
 
--- POLYMORPHIC TYPES
+---- POLYMORPHIC TYPES ----------------------------------------------------
 length' :: [a] -> Integer
 length' []     = 0
 length' (x:xs) = 1 + length' xs
 
--- USER-DEFINED TYPES
+---- USER-DEFINED TYPES --------------------------------------
 -- syntax for data: type constructor = data constructor
 data Bool' = False' | True'        -- nullary data constructors
 data Point a = Pt a a           -- unary type contructors
@@ -17,9 +20,7 @@ data Point a = Pt a a           -- unary type contructors
 -- Type Synonyms
 type Name    = String
 -- type Address = None | Addr String => this would not work
--- type Address = None | Addr String => this would not work 
--- difference between Data and newType
-
+data Address = None | Addr String
 
 fringe :: Tree a -> [a]
 fringe (Leaf x)            = [x]
@@ -46,7 +47,7 @@ take1' _ []    = []
 take1' 0 _     = []
 take1' n (x:xs) = x : take1' (n-1) xs
 
--- LAZY PATTERN - client server simulation
+---- LAZY PATTERN - client server simulation ----------------
 init' = Leaf 1
 reqs = client init' resps
 resps = server reqs
@@ -63,19 +64,8 @@ process req = Branch req req
 
 -- client init' resps = init' : client (next (head resps)) (tail resps) -- non elegant way
 
--- client init' ~(resp:resps) = init' : client (next resp) resps -- lazy pattern
--- server (req:reqs) = process req : server reqs
 
--- init' = 0 -- first request
--- next resp = resp
--- process req = req+1
-
--- init' = Leaf 1
--- next resp = resp
--- process req = Branch req req
-
--- LEXICAL SCOPING AND NESTED FORMS
-
+---- LEXICAL SCOPING AND NESTED FORMS ---------------------------
 -- LET: bindings are mutually recursive and lazy
 
 -- let y   = a*b
@@ -84,8 +74,7 @@ process req = Branch req req
 
 -- WHERE: scope over multiple expression
 
-
--- TYPE CLASS
+---- TYPE CLASS -------------------------------------------------
 -- Recursive Type Class
 data Tree a = Leaf a | Branch (Tree a) (Tree a) deriving (Show)
 
@@ -99,24 +88,75 @@ instance (Eq a) => Eq (Tree a) where
   (Branch l1 r1) == (Branch l2 r2) = (l1==l2) && (r1==r2)
   _ == _                           = False
 
-showsTree :: (Show a) => Tree a -> ShowS
-showsTree (Leaf x) = shows x
-showsTree (Branch l r) = ('<':) . showsTree l . ('|':) . showsTree r . ('>':)
+---- NEWTYPE: Make NEW type out of existing type --------------------------
+newtype Natural = MakeNatural Integer -- unlike type, it's not just a synonym
 
+toNatural x | x < 0     = error "Cant't create negative naturals!"
+            | otherwise = MakeNatural x
 
--- IO
+fromNatural (MakeNatural i) = i
 
-todoList :: [IO ()]
+instance Num Natural where
+  fromInteger = toNatural
+  x + y       = toNatural (fromNatural x + fromNatural y)
+  x - y       = let r = fromNatural x - fromNatural y in
+                  if r < 0 then error "Unnatural subtraction"
+                  else toNatural r
+  x * y       = toNatural (fromNatural x * fromNatural y)
+  abs x       = x
+  signum x    = 1
+
+  -- this can be implemented by using data
+  -- but that will incur the overhead of
+
+---- Strict Data constructor ----------------------------------
+data Complex a = !a :+ !a -- data fields marked by ! are strict
+-- colon means infix operator
+
+---- IO ---------------------------------------
 todoList = [putChar 'a',
             do putChar 'b'
                putChar 'c',
             do c <- getChar
                putChar c]
 
-sequence1 :: [IO ()] -> IO ()
 sequence1 []     = return ()
 sequence1 (a:as) = do a
                       sequence1 as
 
 sequence2 :: [IO ()] -> IO ()
-sequence2 = foldr (>>) (return ())
+sequence2 = foldr (>>) (return ()) -- because x; y equals x >> y
+
+putStr' s = sequence2 (map putChar s)
+
+-- ERROR HANDLING -------------------------------------------------
+getChar' = getChar `catch` eofHandler where
+  eofHandler e = if isEOFError e then return '\n' else ioError e
+
+getLine' :: IO String
+getLine' = let eofHandler e = if isEOFError e then return "\n" else ioError e
+           in getLine'' `catch` eofHandler
+  where getLine'' = do c <- getChar'
+                       if c == '\n'
+                          then return ""
+                          else do l <- getLine'
+                                  return (c:l)
+
+-- SHOW & READ ----------------
+showsTree (Leaf x) = shows x
+showsTree (Branch l r) = ('<':) . showsTree l . ('|':) . showsTree r . ('>':)
+
+-- method that parse a tree and returns [(Tree, unparsed remains)]
+readsTree ('<':s) = [(Branch l r, u) | (l, '|':t) <- readsTree s,
+                                       (r, '>':u) <- readsTree t]
+readsTree s       = [(Leaf x, t) | (x, t) <- reads s :: [(Int, String)]]
+
+-- however this parse cannot handle white space;
+-- using lex will solve the problem as it extract the first lexeme
+readsTree' s = [(Branch l r, x) | ("<", t) <- lex s,
+                                  (l, u)   <- readsTree' t,
+                                  ("|", v) <- lex u,
+                                  (r, w)   <- readsTree' v,
+                                  (">", x) <- lex w]
+               ++
+               [(Leaf x, t)     | (x, t) <- reads s:: [(Int, String)]]

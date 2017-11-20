@@ -1,7 +1,4 @@
 *.o
 *.hi
-/.stack-work/intero/intero60406Ab-STAGING.hs
-/.stack-work/intero/intero60406HP-STAGING.hs
+/.stack-work/
 /TAGS
-/.stack-work/intero/intero60406OD-STAGING.hs
-/.stack-work/intero/intero604076t-STAGING.hs
