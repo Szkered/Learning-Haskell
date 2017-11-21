@@ -1,11 +1,17 @@
+module Haskell98 where          -- Haskell's module design is very simple: completely flat namespace!
+-- but what if we have clashing names in different module?
+-- simple! use qualified name: Module.Entity (i.e. non-flat name)
+
 import Control.Exception
 import System.IO.Error
+import Data.Ix
+import Data.Array
 
-main :: IO()
-main = do
-  print "what's your name?"
-  name <- getLine
-  print ("hello " ++ name ++ "!")
+-- main :: IO()
+-- main = do
+--   print "what's your name?"
+--   name <- getLine
+--   print ("hello " ++ name ++ "!")
 
 ---- POLYMORPHIC TYPES ----------------------------------------------------
 length' :: [a] -> Integer
@@ -78,7 +84,9 @@ process req = Branch req req
 -- Recursive Type Class
 data Tree a = Leaf a | Branch (Tree a) (Tree a) deriving (Show)
 
--- functor is a type class where the fmap applies normal function over ktype constructor
+-- functor is a type class where the
+-- [((i,1), 1) | i <= [2..n]] ++
+-- fmap applies normal function over ktype constructor
 instance Functor Tree where
   fmap f (Leaf x) = Leaf (f x)
   fmap f (Branch t1 t2) = Branch (fmap f t1) (fmap f t2)
@@ -159,4 +167,67 @@ readsTree' s = [(Branch l r, x) | ("<", t) <- lex s,
                                   (r, w)   <- readsTree' v,
                                   (">", x) <- lex w]
                ++
-               [(Leaf x, t)     | (x, t) <- reads s:: [(Int, String)]]
+               [(Leaf x, t)     | (x, t) <- reads s::[(Int, String)]]
+
+-- NUMBERS -----------------------------------------------------
+{-
+Eq => Num, but Ord /=> Num
+Num does not provide division
+Num => Integral: unbounded int, or bignums
+Num => Int     : bounded int, with a range to at least 29-bits signed binary
+Num => Franctional
+
+Primitives: Int, Integer, Float, Double
+
+numeral literals (like 8) are actually fromInteger 8::Integer, which has the
+type (Num a) => a
+-}
+
+rms x y = sqrt ((x^2 + y^2) * 0.5)
+-- (^) has the type (Num a, Integral b) => a -> b -> a
+-- Now from the above definition we only knows that 2 is in the Integral class
+-- a simple way to fix it would be
+rms' x y = sqrt ((x^(2::Integer) + y^(2::Integer)) * 0.5)
+-- This is tiresome. We can solve this better with ~default declaration~, like this:
+-- defalut (Int, Float)
+-- the 'default default' is (Integer, Double)
+
+-- ARRAYS ----------------------------------------------------------
+mkArray f bnds = array bnds [(i, f i) | i <- range bnds]
+
+fibs n = a where
+         a = array (0,n) ([(0, 1), (1, 1)] ++
+                          [(i, a!(i-2) + a!(i-1)) | i <- [2..n]])
+
+wavefront n = a where
+              a = array ((1,1), (n,n))
+                    ([((1,j), 1) | j <- [1..n]] ++
+                     [((i,1), 1) | i <- [2..n]] ++
+                     [((i,j), a!(i,j-1) + a!(i-1,j-1) + a!(i-1,j))
+                     | i <- [2..n], j <- [2..n]])
+-- histogram implemented with accumulating function
+hist bnds is = accumArray (+) 0 bnds [(i, 1) | i <- is, inRange bnds i]
+
+-- create histogram over measurements on the interval [a,b) in decades (10 bins)
+decades a b = hist (0,9) . map decade
+              where decade x = floor ((x - a) * s)
+                    s        = 10 / (b - a)
+
+-- Array update operator a // [(i,v)]
+swapRows i i' a = a // [assoc | j <- [jLo..jHi],
+                                assoc <- [((i, j), a!(i',j)),
+                                          ((i',j), a!(i, j))] ]
+                                          where ((iLo, jLo), (iHi,jHi)) = bounds a
+-- what? there's no temp array to hold the swapped value? of course!
+-- data are immutable, so we can do this loop fusion easilly
+
+-- look at the type of matMult, it's as generic as it can get
+matMult x y = array resultBounds
+                    [((i,j), sum [x!(i,k) * y!(k,j) | k <- range (lj,uj)])
+                                  | i <- range (li,ui),
+                                    j <- range (lj',uj')]
+        where ((li,lj),(ui,uj))     = bounds x
+              ((li',lj'),(ui',uj')) = bounds y
+              resultBounds
+                | (lj,uj) == (li',ui') = ((li,lj'),(ui,uj'))
+                | otherwise            = error "matMult: incompatible bounds"
