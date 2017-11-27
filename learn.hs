@@ -184,7 +184,7 @@ instance Functor' Tree where
     fmap' f EmptyTree = EmptyTree
     fmap' f (Node x leftsub rightsub) = Node (f x) (fmap' f leftsub) (fmap' f rightsub)
 
--- typeclass 102
+-- typeclass 102: kind inference
 class Tofu t where
     tofu :: j a -> t a j --here t must have the kind * -> (* -> *) -> *
 
@@ -196,7 +196,9 @@ instance Tofu Frank where
 
 
 -- I/O
-main = do
+main = main3
+
+main' = do
     return ()
     return "HAHAHA"
     line <- getLine
@@ -262,7 +264,6 @@ solveRPN = head . foldl foldingFunction [] . words
           foldingFunction (x:ys) "ln"  = log x:ys
           foldingFunction xs "sum"     = [sum xs]
           foldingFunction xs numStr    =  read numStr:xs
-
 
 -- Functors and Monoids
 --   A functor is a type constructor that takes one type, so

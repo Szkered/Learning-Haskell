@@ -34,6 +34,8 @@ import Control.Applicative
     --     x <- b
     --     return (f x)
 -- we can prompt twolines and get the concat result back by
+main = main2
+
 main1 = do
     a <- (++) <$> getLine <*> getLine
     putStrLn $ "two lines concatenated is: " ++ a
@@ -52,12 +54,11 @@ main2 = do
 main3 = do
     putStrLn . show. getZipList $ liftA2 max (ZipList [1,4,2,5,6]) (ZipList [6,4,7,3,6,7,8])
 
-sequenceA :: (Applicative f) => [f a] -> f [a]
-sequenceA [] = pure []
-sequenceA (x:xs) = (:) <$> x <*> sequenceA xs
+-- sequenceA' :: (Applicative f) => [f a] -> f [a]
+sequenceA' [] = pure []
+sequenceA' (x:xs) = (:) <$> x <*> sequenceA' xs
 
 
--- newtype
 newtype CharList = CharList { getCharList :: [Char] } deriving (Eq, Show)
 
 -- Monoid is just a group without guranteed inverses
@@ -202,6 +203,13 @@ moveKnight ps = filter onBoard
 
 in3 :: KnightPos -> [[KnightPos]]
 in3 start = return [start] >>= moveKnight >>= moveKnight >>= moveKnight
+
+-- in3' :: KnightPos -> [[KnightPos]]
+-- in3' start = do return [start]
+--                 moveKnight
+--                 moveKnight
+--                 moveKnight
+
 
 canReachIn3 :: KnightPos -> KnightPos -> [[KnightPos]]
 canReachIn3 start end = filter ((end==) . head) . in3 $ start

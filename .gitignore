@@ -2,3 +2,5 @@
 *.hi
 /.stack-work/
 /TAGS
+/scheme_interpreter/TAGS
+scheme_interpreter/simple_parser

@@ -2,8 +2,8 @@ import Text.ParserCombinators.Parsec
 import Data.Ix
 import Data.List
 import Data.Array
-import Test.QuickCheck
-import Control.Monad (liftM2, replicateM)
+-- import Test.QuickCheck
+import Control.Monad
 
 
 parseInput =
@@ -54,22 +54,22 @@ greedy_pack in_dirs media_size = foldl (maybe_add_dir media_size) (DirPack 0 [])
               in if new_size > m then p else DirPack new_size new_dirs
 
 
--- QuickCheck
-instance Arbitrary Dir where
-         -- coarbitrary = undefined
-         arbitrary = liftM2 Dir gen_size gen_name
-           where gen_size = do s <- choose (10,1400)
-                               return (s*1024*1024)
-                 gen_name = do n <- choose (1,300)
-                               replicateM n (elements "fubar/")
-prop_greedy_pack_is_fixpoint ds =
-                             let pack = greedy_pack ds m_size
-                             in pack_size pack == pack_size (greedy_pack (dirs pack) m_size )
-prop_dynamic_pack_is_fixpoint ds =
-                             let pack = dynamic_pack ds m_size
-                             in pack_size pack == pack_size (dynamic_pack' (dirs pack) m_size )
-prop_greedy_pack_is_no_better_than_dynamic_pack ds =
-  pack_size (greedy_pack ds m_size ) <= pack_size (dynamic_pack' ds m_size)
+-- -- QuickCheck
+-- instance Arbitrary Dir where
+--          -- coarbitrary = undefined
+--          arbitrary = liftM2 Dir gen_size gen_name
+--            where gen_size = do s <- choose (10,1400)
+--                                return (s*1024*1024)
+--                  gen_name = do n <- choose (1,300)
+--                                replicateM n (elements "fubar/")
+-- prop_greedy_pack_is_fixpoint ds =
+--                              let pack = greedy_pack ds m_size
+--                              in pack_size pack == pack_size (greedy_pack (dirs pack) m_size )
+-- prop_dynamic_pack_is_fixpoint ds =
+--                              let pack = dynamic_pack ds m_size
+--                              in pack_size pack == pack_size (dynamic_pack' (dirs pack) m_size )
+-- prop_greedy_pack_is_no_better_than_dynamic_pack ds =
+--   pack_size (greedy_pack ds m_size ) <= pack_size (dynamic_pack' ds m_size)
 
 m_size = 100000      -- 700MB CD volume
 
@@ -112,3 +112,61 @@ dynamic_pack' dirs media_size = bestDisk media_size dirs
 
 -- main = quickCheck prop_dynamic_pack_is_fixpoint
 -- TODO profiling doesn't work... cannot find parsec and quickcheck for some reason
+
+-- MONADS! ------------------------------------
+type Attribute = (Name, AttValue)
+type AttValue = Either Value [Reference]
+type Name = String
+type Value = String
+type Reference = String
+
+simple_attrs = [ ( "xml:lang", Left "en" )
+               , ( "xmlns", Left "jabber:client" )
+               , ( "xmlns:stream", Left "http://etherx.jabber.org/streams" ) ]
+complex_attrs = [ ( "xml:lang", Right ["lang"] )
+                , ( "lang", Left "en" )
+                , ( "xmlns", Right ["ns","subns"] )
+                , ( "ns", Left "jabber" )
+                , ( "subns", Left "client" )
+                , ( "xmlns:stream", Left "http://etherx.jabber.org/streams" ) ]
+
+lookupAttr :: Name -> [Attribute] -> Maybe Value -- type declaration are needed for type synonyms
+lookupAttr nm attrs =
+  case (lookup nm attrs) of
+    Nothing   -> Nothing
+    Just attv -> case attv of
+                   Left val   -> Just val
+                   Right refs ->
+                         let vals = [ lookupAttr ref attrs | ref <- refs ]
+                             wo_failures = filter (/= Nothing) vals
+                             stripJust (Just v) = v
+                             strings = map stripJust wo_failures
+                         in case null strings of
+                              True  -> Nothing
+                              False -> Just (concat (intersperse ":" strings))
+-- bloated codes... reason being we have too much (nested) control flow!
+-- try/catch? Nope. Monad!
+
+
+lookupAttr' :: Name -> [Attribute] -> Maybe Value -- type declaration are needed for type synonyms
+lookupAttr' nm attrs = do
+  attv <- lookup nm attrs       -- when we use <-, no need to check for Nothing anymore..
+  case attv of
+    Left val   -> Just val
+    Right refs -> do vals <- sequence $ map (flip lookupAttr' attrs) refs
+                     guard (not (null vals))
+                     return (concat (intersperse ":" vals))
+
+
+-- Let's reduce codes further! Use either to replace "case (Either a b) of"
+-- either :: (a -> c) -> (b -> c) -> Either a b -> c
+-- either provide a way to reconcile the two different types in Either monad to a thrid type c
+lookupAttr'' :: Name -> [Attribute] -> Maybe Value -- type declaration are needed for type synonyms
+lookupAttr'' nm attrs = do
+  attv <- lookup nm attrs
+  either Just (dereference attrs) attv
+  where
+     dereference attrs refs = do
+                 vals <- sequence $ map (flip lookupAttr'' attrs) refs
+                 guard (not (null vals))
+                 return (concat (intersperse ":" vals))
