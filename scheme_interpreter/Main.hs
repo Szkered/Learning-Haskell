@@ -4,6 +4,9 @@ import System.Environment
 import Text.ParserCombinators.Parsec hiding (spaces)
 import Control.Monad
 import Data.Char
+import Data.Ratio
+import Data.Complex
+
 
 main = do args <- getArgs
           putStrLn (readExpr $ args!!0)
@@ -16,11 +19,18 @@ spaces = skipMany1 space
 
 data LispVal = Atom String
              | Character Char
+             | String String
              | List [LispVal]
              | DottedList [LispVal] LispVal
              | Number Integer
-             | String String
+             | Float Double
              | Bool Bool
+             | Ratio Rational
+             | Complex (Complex Double)
+
+toDouble :: LispVal -> Double
+toDouble (Float f)  = realToFrac f
+toDouble (Number n) = fromIntegral n
 
 escapedChars :: Parser Char
 escapedChars = do char '\\'
@@ -76,12 +86,33 @@ parseBin = do try $ string "#x"
               d <- many1 (oneOf "10")
               return . Number . bin2dig $ d
 
-oct2dig x = fst $ readOct x!!0
-hex2dig x = fst $ readHex x!!0
+parseFloat :: Parser LispVal
+parseFloat = do x <- many1 digit
+                char '.'
+                y <- many1 digit
+                return . Float . float2dig $ (x ++ "." ++ y)
+
+parseRatio :: Parser LispVal
+parseRatio = do numerator <- many1 digit
+                char '/'
+                denominator <- many1 digit
+                return $ Ratio ((read numerator) % (read denominator))
+
+parseComplex :: Parser LispVal
+parseComplex = do x <- (try parseFloat <|> parseDecimal1)
+                  char '+'
+                  y <- (try parseFloat <|> parseDecimal1)
+                  char 'i'
+                  return $ Complex (toDouble x :+ toDouble y)
+
+oct2dig x = fst $ readOct x !! 0
+hex2dig x = fst $ readHex x !! 0
 bin2dig = bin2dig' 0 where
         bin2dig' digint "" = digint
         bin2dig' digint (x:xs) = let old = 2 * digint + toInteger (digitToInt x)
                                  in bin2dig' old xs
+float2dig x = fst $ readFloat x !! 0
+
 
 -- my attempt...
 parseChar :: Parser LispVal
@@ -110,8 +141,10 @@ parseCharacter = do
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
         <|> parseString
-        <|> parseNumber
-        <|> parseBool
+        <|> try parseNumber
+        <|> try parseBool
+        <|> try parseCharacter
+        <|> try parseFloat
 
 readExpr input = case parse parseExpr "lisp" input of
                    Left err  -> "No match: " ++ show err
