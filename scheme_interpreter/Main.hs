@@ -1,12 +1,12 @@
 module Main where
 import Numeric
 import System.Environment
-import Text.ParserCombinators.Parsec hiding (spaces)
+import Text.ParserCombinators.Parsec
 import Control.Monad
 import Data.Char
 import Data.Ratio
 import Data.Complex
-
+import Data.Array
 
 main = do args <- getArgs
           putStrLn (readExpr $ args!!0)
@@ -14,8 +14,8 @@ main = do args <- getArgs
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=?>@^_~"
 
-spaces :: Parser ()
-spaces = skipMany1 space
+spaces1 :: Parser ()
+spaces1 = skipMany1 space
 
 data LispVal = Atom String
              | Character Char
@@ -27,6 +27,7 @@ data LispVal = Atom String
              | Bool Bool
              | Ratio Rational
              | Complex (Complex Double)
+             | Vector (Array Int LispVal)
 
 toDouble :: LispVal -> Double
 toDouble (Float f)  = realToFrac f
@@ -113,21 +114,6 @@ bin2dig = bin2dig' 0 where
                                  in bin2dig' old xs
 float2dig x = fst $ readFloat x !! 0
 
-
--- my attempt...
-parseChar :: Parser LispVal
-parseChar = do char '#'
-               char '\\'
-               first <- letter <|> symbol
-               rest <- many (letter)
-               case first of
-                 'a' -> return . Character $ rest!!0
-                 'A' -> return . Character $ rest!!0
-                 '(' -> return . Character $ '('
-                 ' ' -> return . Character $ ' '
-                 's' -> return . Character $ ' '
-                 'n' -> return . Character $ '\n'
-
 parseCharacter :: Parser LispVal
 parseCharacter = do
                try $ string "#\\"
@@ -136,11 +122,65 @@ parseCharacter = do
                return $ Character $ case val of
                                       "space"   -> ' '
                                       "newline" -> '\n'
-                                      _         -> (val!!0)
+                                      _         -> (val !! 0)
+
+parseList :: Parser LispVal
+parseList = liftM List $ parseExpr `sepBy` spaces1
+
+parseDottedList :: Parser LispVal
+parseDottedList = do
+                head <- parseExpr `endBy` spaces1
+                tail <- char '.' >> spaces1 >> parseExpr
+                return $ DottedList head tail
+
+parseQuoted :: Parser LispVal
+parseQuoted = do
+            char '\''
+            x <- parseExpr
+            return $ List [Atom "quote", x]
+
+parseQuasiQuoted :: Parser LispVal
+parseQuasiQuoted = do
+                 char '`'
+                 x <- parseExpr
+                 return $ List [Atom "quasiquote", x]
+
+parseUnQuoted :: Parser LispVal
+parseUnQuoted = do
+              char ','
+              x <- parseExpr
+              return $ List [Atom "unquote", x]
+
+parseVector :: Parser LispVal
+parseVector = do
+            arrayVals <- parseExpr `sepBy` spaces1
+            return $ Vector (listArray (0, (length arrayVals - 1)) arrayVals)
+
+parseList' :: Parser LispVal
+parseList' = do char '(' >> spaces
+                head <- parseExpr `sepEndBy` spaces1
+                do char '.' >> spaces1
+                   tail <- parseExpr
+                   spaces >> char ')'
+                   return $ DottedList head tail
+                 <|> (spaces >> char ')' >> (return $ List head))
+
+parseVector' :: Parser LispVal
+parseVector' = do try $ string "#(" >> spaces
+                  arrayVals <- parseExpr `sepEndBy` spaces1
+                  char ')'
+                  return $ Vector (listArray (0, (length arrayVals - 1)) arrayVals)
 
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
         <|> parseString
+        <|> parseQuoted
+        <|> parseQuasiQuoted
+        <|> parseUnQuoted
+        -- <|> try ( do string "#("; x <- parseVector; char ')'; return x )
+        <|> try parseVector'
+        <|> parseList'
+        -- <|> do { char '('; x <- try parseList <|> parseDottedList; char ')'; return x }
         <|> try parseNumber
         <|> try parseBool
         <|> try parseCharacter
@@ -149,3 +189,4 @@ parseExpr = parseAtom
 readExpr input = case parse parseExpr "lisp" input of
                    Left err  -> "No match: " ++ show err
                    Right val -> "Found value"
+
