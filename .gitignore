@@ -4,3 +4,12 @@
 /TAGS
 /scheme_interpreter/TAGS
 scheme_interpreter/simple_parser
+/scheme_interpreter/GPATH
+/scheme_interpreter/GRTAGS
+/cd-fit
+/cabal.sandbox.config
+/.cabal
+/.cabal-sandbox/
+.cabal-sandbox
+/scheme_interpreter/GTAGS
+/scheme_interpreter/eval

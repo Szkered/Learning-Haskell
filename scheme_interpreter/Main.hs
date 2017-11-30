@@ -7,9 +7,11 @@ import Data.Char
 import Data.Ratio
 import Data.Complex
 import Data.Array
+import Data.List
+-- import Control.Monad.Except
+import Control.Monad.Error
 
-main = do args <- getArgs
-          putStrLn (readExpr $ args!!0)
+main = getArgs >>= print . eval . readExpr . head
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=?>@^_~"
@@ -29,9 +31,51 @@ data LispVal = Atom String
              | Complex (Complex Double)
              | Vector (Array Int LispVal)
 
-toDouble :: LispVal -> Double
-toDouble (Float f)  = realToFrac f
-toDouble (Number n) = fromIntegral n
+showVal :: LispVal -> String
+showVal (Atom name)            = name
+showVal (Character name)       = show name
+showVal (String contents)      = "\"" ++ contents ++ "\""
+showVal (List contents)        = "(" ++ unwordList contents ++ ")"
+showVal (DottedList head tail) = "(" ++ unwordList head ++ " . " ++ showVal tail ++ ")"
+showVal (Number contents)      = show contents
+showVal (Float contents)       = show contents
+showVal (Bool True)            = "#t"
+showVal (Bool False)           = "#f"
+showVal (Ratio a)              = show (numerator a) ++ "/" ++ show (denominator a)
+showVal (Complex c)            = show (realPart c) ++ "+" ++ show (imagPart c) ++ "i"
+showVal (Vector array)         = "#(" ++ unwords valS ++ ")" where
+                                    valS = map showVal . elems $ array
+
+unwordList :: [LispVal] -> String
+unwordList = unwords . map showVal
+
+instance Show LispVal where show = showVal
+
+data LispError = NumArgs Integer [LispVal]
+               | TypeMismatch String LispVal
+               | Parser ParseError
+               | BadSpecialForm String LispVal
+               | NotFunction String String
+               | UnboundVar String String
+               | Default String
+
+showError :: LispError -> String
+showError (UnboundVar message varname)  = message ++ ": " ++ varname
+showError (BadSpecialForm message form) = message ++ ": " ++ show form
+showError (NotFunction message func)    = message ++ ": " ++ show func
+showError (NumArgs expected found)      = "Expected " ++ show expected
+                                       ++ " args; found values " ++ unwordList found
+showError (TypeMismatch expected found) = "Invalid type: expected " ++ expected
+                                       ++ ", found " ++ show found
+showError (Parser parseErr)             = "Parse error at " ++ show parseErr
+
+instance Show LispError where show = showError
+
+instance Error LispError where
+         noMsg  = Default "An error has occurred"
+         strMsg = Default
+
+type ThrowsError = Either LispError
 
 escapedChars :: Parser Char
 escapedChars = do char '\\'
@@ -105,6 +149,10 @@ parseComplex = do x <- (try parseFloat <|> parseDecimal1)
                   y <- (try parseFloat <|> parseDecimal1)
                   char 'i'
                   return $ Complex (toDouble x :+ toDouble y)
+
+toDouble :: LispVal -> Double
+toDouble (Float f)  = realToFrac f
+toDouble (Number n) = fromIntegral n
 
 oct2dig x = fst $ readOct x !! 0
 hex2dig x = fst $ readHex x !! 0
@@ -187,6 +235,61 @@ parseExpr = parseAtom
         <|> try parseFloat
 
 readExpr input = case parse parseExpr "lisp" input of
-                   Left err  -> "No match: " ++ show err
-                   Right val -> "Found value"
+                   Left err  -> String $ "No match: " ++ show err
+                   Right val -> val
 
+-- eval :: LispVal -> LispVal
+eval val@(String _) = val
+eval val@(Number _) = val
+eval val@(Bool _)   = val
+eval (List [Atom "quote", val]) = val
+eval (List (Atom func : args)) = apply func $ map eval args
+
+-- apply :: String -> [LispVal] -> LispVal
+apply func args = maybe (Bool False) ($ args) $ lookup func primitives
+
+-- primitives :: [(String, [LispVal] -> LispVal)]
+primitives = [("+", numericBinop (+)),
+              ("-", numericBinop (-)),
+              ("*", numericBinop (*)),
+              ("/", numericBinop div),
+              ("mod", numericBinop mod),
+              ("quotient", numericBinop quot),
+              ("remainder", numericBinop rem),
+              ("symbol?" , unaryOp symbolp),
+              ("string?" , unaryOp stringp),
+              ("number?" , unaryOp numberp),
+              ("bool?", unaryOp boolp),
+              ("list?" , unaryOp listp),
+              ("symbol->string", unaryOp symbol2string),
+              ("string->symbol", unaryOp string2symbol)]
+
+numericBinop op params = Number $ foldl1 op $ map unpackNum params
+
+unpackNum (Number n) = n
+unpackNum (String n) = let parsed = reads n :: [(Integer, String)]
+                       in if null parsed
+                             then 0
+                             else fst $ parsed !! 0
+unpackNum (List [n]) = unpackNum n
+unpackNum _ = 0
+
+unaryOp :: (LispVal -> LispVal) -> [LispVal] -> LispVal
+unaryOp f [v] = f v
+
+symbolp (Atom _)         = Bool True
+symbolp _                = Bool False
+numberp (Number _)       = Bool True
+numberp _                = Bool False
+stringp (String _)       = Bool True
+stringp _                = Bool False
+boolp   (Bool _)         = Bool True
+boolp   _                = Bool False
+listp   (List _)         = Bool True
+listp   (DottedList _ _) = Bool True
+listp   _                = Bool False
+
+symbol2string (Atom s)   = String s
+symbol2string _          = String ""
+string2symbol (String s) = Atom s
+string2symbol _          = Atom ""
