@@ -10,9 +10,8 @@ import           Data.Ratio
 import           Numeric
 import           System.Environment
 import           Text.ParserCombinators.Parsec
--- import Control.Monad.Except
 import           Control.Monad.Error
-
+-- import           Control.Monad.Loops
 
 -- main = getArgs >>= print . eval . readExpr . head
 main' = do
@@ -256,20 +255,22 @@ readExpr input = case parse parseExpr "lisp" input of
                    Right val -> return val
 
 eval :: LispVal -> ThrowsError LispVal
-eval val@(String _)             = return val
-eval val@(Number _)             = return val
-eval val@(Bool _)               = return val
-eval (List [Atom "quote", val]) = return val
+eval val@(String _)                  = return val
+eval val@(Number _)                  = return val
+eval val@(Bool _)                    = return val
+eval (List [Atom "quote", val])      = return val
 eval (List [Atom "if", pred, conseq, alt]) =
      do result <- eval pred
         case result of
           Bool False -> eval alt
           Bool True  -> eval conseq
           _          -> throwError $ TypeMismatch "Bool" pred
-eval (List (Atom "cond" : cs))  = mapM evalClause cs >>= reduceClauses
-eval (List (Atom func : args))  = mapM eval args >>= apply func
-eval badForm                    = throwError $ BadSpecialForm "Unrecognized special form" badForm
+eval (List (Atom "cond" : cs))       = mapM evalClause cs >>= reduceClauses
+eval (List (Atom "case" : key : cs)) = eval key >>= caseExp cs
+eval (List (Atom func : args))       = mapM eval args >>= apply func
+eval badForm                         = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
+-- The unspecified form is not implemented yet
 reduceClauses :: [LispVal] -> ThrowsError LispVal
 reduceClauses clauses = return $ last $ filter notFalse clauses
   where notFalse x = case boolp x of
@@ -281,15 +282,38 @@ evalClause (List [test, sexp])        = evalTest test sexp
 evalClause (List [test])              = evalTest test $ Bool True
 evalClause otherwise                  = throwError $ TypeMismatch "List of maximum 2 elements" otherwise
 
-evalTest test sexp = do result <- eval test
-                        case result of
-                          Bool False -> return $ Bool False
-                          Bool True  -> eval sexp
-                          _          -> throwError $ TypeMismatch "Bool" test
+evalTest test sexp = eval test >>= unpackBool >>= (\b -> if b then eval sexp
+                                                              else return $ Bool False)
 
-evalTest' test sexp = eval test >>= unpackBool >>= (\b -> if b then eval sexp
-                                                               else return $ Bool False)
+evalTest' test sexp = do result <- eval test
+                         case result of
+                           Bool False -> return $ Bool False
+                           Bool True  -> eval sexp
+                           _          -> throwError $ TypeMismatch "Bool" test
 
+-- for some reason I cannot import anyM from Control.Monad.Loops....
+-- anyM :: (Monad)
+anyM _ [] = return False
+anyM p (x:xs) = do q <- p x
+                   if q
+                      then return True
+                      else anyM p xs
+
+caseExp :: [LispVal] -> LispVal -> ThrowsError LispVal
+caseExp ((List (Atom "else" : sexps)) : []) keyVal = evalSexps sexps
+caseExp ((List (List datum : sexps)) : []) keyVal = matchCase datum sexps keyVal (return $ Atom "unspecified")
+caseExp ((List (List datum : sexps)) : cs) keyVal = matchCase datum sexps keyVal (caseExp cs keyVal)
+
+
+matchCase :: [LispVal] -> [LispVal] -> LispVal -> ThrowsError LispVal -> ThrowsError LispVal
+matchCase datum sexps keyVal f = do result <- mapM (eqv . (:[keyVal])) $ datum
+                                    case or $ map (\x -> let (Bool r) = x
+                                                         in r) result of
+                                     False -> f
+                                     True  -> evalSexps sexps
+
+evalSexps :: [LispVal] -> ThrowsError LispVal
+evalSexps sexps = mapM eval sexps >>= return . last
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
 apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function args" func)
@@ -409,7 +433,7 @@ cons [x1, x2]                 = return $ DottedList [x1] x2
 cons badArgList               = throwError $ NumArgs 2 badArgList
 
 eqv :: [LispVal] -> ThrowsError LispVal
-eqv [(Bool arg1), (Bool arg2)] = return $ Bool $ arg1 == arg2
+eqv [(Bool arg1), (Bool arg2)]             = return $ Bool $ arg1 == arg2
 eqv [(Number arg1), (Number arg2)]         = return $ Bool $ arg1 == arg2
 eqv [(String arg1), (String arg2)]         = return $ Bool $ arg1 == arg2
 eqv [(Atom arg1), (Atom arg2)]             = return $ Bool $ arg1 == arg2
