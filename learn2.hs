@@ -22,9 +22,23 @@ import Control.Applicative
 --     f <*> g = \x -> f x (g x)
 -- pure (+) <*> (+3) <*> (*5)
 
+-- a case where the arrow functor is used
+skipEven = map snd . filter (odd . fst) . zip [1..]
+splinter2 = skipEven . (zip <*> tail)
+-- splinter2 [1..6] = [(1,2),(3,4),(5,6)]
+-- the meaning of encasing in arrow functor (->) is to wrap
+-- a computational procedure with a function that take certain FIXED input x
+-- for single argument function g it's straight forward:
+-- the value wrapped is the computation result of that function, i.e. g x
+-- for double argument funciton f :: a -> b -> a
+-- it's about fixing the input a to x, then apply a function of type (b -> a) over the functor
+
+
 -- instance Applicative [] where
 --     pure x = [x]
 --     fs <*> xs = [f x | f <- fs, x <- xs]
+
+
 
 -- Now here's a power example for applicative IO
 -- instance Applicative' IO where

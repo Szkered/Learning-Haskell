@@ -276,7 +276,7 @@ solveRPN = head . foldl foldingFunction [] . words
 -- therefore, fmap must preserve the identity function and function composition.
 
 
--- this functor takes a type t and returns (r -> a) which is a function
+-- this functor takes a type r and returns (r -> a) which is a function
 -- we see that its fmap is just functional composition
 instance Functor' ((->) r) where
     fmap' = (.)
