@@ -41,7 +41,7 @@ data LispVal = Atom String
              | Bool Bool
              | Ratio Rational
              | Complex (Complex Double)
-             | Vector (Array Int LispVal)
+             | Vector (Array Int LispVal) deriving (Eq)
 
 showVal :: LispVal -> String
 showVal (Atom name)            = name
@@ -255,20 +255,24 @@ readExpr input = case parse parseExpr "lisp" input of
                    Right val -> return val
 
 eval :: LispVal -> ThrowsError LispVal
-eval val@(String _)                  = return val
-eval val@(Number _)                  = return val
-eval val@(Bool _)                    = return val
-eval (List [Atom "quote", val])      = return val
+eval val@(String _)                       = return val
+eval val@(Number _)                       = return val
+eval val@(Bool _)                         = return val
+eval (List [Atom "quote", val])           = return val
 eval (List [Atom "if", pred, conseq, alt]) =
      do result <- eval pred
         case result of
           Bool False -> eval alt
           Bool True  -> eval conseq
           _          -> throwError $ TypeMismatch "Bool" pred
-eval (List (Atom "cond" : cs))       = mapM evalClause cs >>= reduceClauses
-eval (List (Atom "case" : key : cs)) = eval key >>= caseExp cs
-eval (List (Atom func : args))       = mapM eval args >>= apply func
-eval badForm                         = throwError $ BadSpecialForm "Unrecognized special form" badForm
+eval form@(List (Atom "cond" : cs))       = if null cs
+                                                then throwError $ BadSpecialForm "No clause in cond: " form
+                                                else mapM evalClause cs >>= reduceClauses
+eval form@(List (Atom "case" : key : cs)) = if null cs
+                                                then throwError $ BadSpecialForm "No clause in cond: " form
+                                                else eval key >>= caseExp cs
+eval (List (Atom func : args))            = mapM eval args >>= apply func
+eval badForm                              = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 -- The unspecified form is not implemented yet
 reduceClauses :: [LispVal] -> ThrowsError LispVal
@@ -291,26 +295,27 @@ evalTest' test sexp = do result <- eval test
                            Bool True  -> eval sexp
                            _          -> throwError $ TypeMismatch "Bool" test
 
--- for some reason I cannot import anyM from Control.Monad.Loops....
--- anyM :: (Monad)
-anyM _ [] = return False
-anyM p (x:xs) = do q <- p x
-                   if q
-                      then return True
-                      else anyM p xs
+caseExp' cs keyVal = case head cs of
+                       List (Atom "else" : sexps) -> evalSexps sexps
+                       List (List datum : sexps)  -> do
+                        result <- mapM (\x -> eqv [keyVal, x]) datum
+                        if Bool True `elem` result
+                           then evalSexps sexps
+                           else eval $ List (Atom "case" : List [Atom "quote", keyVal] : tail cs)
+                       _                          -> throwError $ BadSpecialForm "Bad form: " (List cs)
 
-caseExp :: [LispVal] -> LispVal -> ThrowsError LispVal
+
+-- caseExp :: [LispVal] -> LispVal -> ThrowsError LispVal
 caseExp ((List (Atom "else" : sexps)) : []) keyVal = evalSexps sexps
-caseExp ((List (List datum : sexps)) : []) keyVal = matchCase datum sexps keyVal (return $ Atom "unspecified")
-caseExp ((List (List datum : sexps)) : cs) keyVal = matchCase datum sexps keyVal (caseExp cs keyVal)
+caseExp ((List (List datum : sexps)) : []) keyVal  = matchCase datum sexps keyVal (return $ Atom "unspecified")
+caseExp ((List (List datum : sexps)) : cs) keyVal  = matchCase datum sexps keyVal (caseExp cs keyVal)
 
 
 matchCase :: [LispVal] -> [LispVal] -> LispVal -> ThrowsError LispVal -> ThrowsError LispVal
-matchCase datum sexps keyVal f = do result <- mapM (eqv . (:[keyVal])) $ datum
-                                    case or $ map (\x -> let (Bool r) = x
-                                                         in r) result of
-                                     False -> f
-                                     True  -> evalSexps sexps
+matchCase datum sexps keyVal f = do result <- mapM (\x -> eqv [keyVal, x]) datum
+                                    if Bool True `elem` result
+                                       then evalSexps sexps
+                                       else f
 
 evalSexps :: [LispVal] -> ThrowsError LispVal
 evalSexps sexps = mapM eval sexps >>= return . last
