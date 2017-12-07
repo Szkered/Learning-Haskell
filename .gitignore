@@ -13,3 +13,4 @@ scheme_interpreter/simple_parser
 .cabal-sandbox
 /scheme_interpreter/GTAGS
 /scheme_interpreter/eval
+/scheme_interpreter/lisp

@@ -52,7 +52,7 @@ main = main2
 
 main1 = do
     a <- (++) <$> getLine <*> getLine
-    putStrLn $ "two lines concatenated is: " ++ a
+    putStrLn $ "two lines concatenated is : " ++ a
 
 
 -- Yet another powerful example: ZipList. ZipWith function can only

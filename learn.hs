@@ -229,7 +229,7 @@ main3 = do
         putStrLn $ "Associate color with the number " ++ show a ++ ":"
         color <- getLine
         return color)
-    putStrLn "colors choosen:"
+    putStrLn "Colors choosen:"
     mapM putStrLn colors
 
 main4 = interact shortLinesOnly
