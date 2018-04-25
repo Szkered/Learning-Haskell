@@ -19,6 +19,6 @@ executable Learning-Haskell
   main-is:             Main.hs
   -- other-modules:       
   other-extensions:    InstanceSigs
-  build-depends:       base >=4.10 && <4.11, transformers >=0.5 && <0.6, stm
+  build-depends:       base >=4.10 && <4.11, transformers >=0.5 && <0.6, stm, random
   -- hs-source-dirs:      
   default-language:    Haskell2010

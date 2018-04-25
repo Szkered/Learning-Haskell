@@ -107,6 +107,6 @@ main = do acc1 <- atomically (newTVar 100)
 -- 2. run (or simulate) act, which does write to TVar but rather the transaction log
 -- 3. validate the logs by comparing real TVar value with what's in the log (the first readTVar?)
 -- 4. if validation fail, re-initialize the log and re-execute the act
--- a. retry: undo the current transaction, until a writeTVar happends
+-- a. retry: undo the current transaction, until a writeTVar to TVar that causes the retry happends
 
 -- the key idea is that when using (atomically act), act is packaged into a single atomic action
